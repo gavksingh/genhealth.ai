@@ -6,7 +6,6 @@ import { checkHealth } from './api';
 import UploadTab from './components/UploadTab';
 import OrdersTab from './components/OrdersTab';
 import LogsTab from './components/LogsTab';
-import './App.css';
 
 type Tab = 'upload' | 'orders' | 'logs';
 
@@ -20,129 +19,163 @@ function App() {
   const [tab, setTab] = useState<Tab>('upload');
   const [healthStatus, setHealthStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const hasAnimated = useRef(false);
-  const [showEntrance, setShowEntrance] = useState(!hasAnimated.current);
+  const shouldAnimate = !hasAnimated.current;
 
   useEffect(() => {
+    hasAnimated.current = true;
     checkHealth().then((ok) => setHealthStatus(ok ? 'ok' : 'error'));
   }, []);
 
-  useEffect(() => {
-    if (!hasAnimated.current) {
-      hasAnimated.current = true;
-      setTimeout(() => setShowEntrance(false), 600);
-    }
-  }, []);
-
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Toast notifications */}
+    <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
       <Toaster
         position="bottom-right"
         toastOptions={{
-          style: {
-            background: '#fff',
-            color: '#0f172a',
-            fontSize: '14px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          },
-          success: {
-            style: { borderLeft: '3px solid #10b981' },
-          },
-          error: {
-            style: { borderLeft: '3px solid #f43f5e' },
-          },
+          style: { background: '#fff', color: '#0f172a', fontSize: '14px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
+          success: { style: { borderLeft: '3px solid #10b981' } },
+          error: { style: { borderLeft: '3px solid #f43f5e' } },
         }}
       />
 
-      {/* Navigation */}
-      <motion.nav
-        initial={showEntrance ? { y: -64, opacity: 0 } : false}
+      {/* TOP NAV */}
+      <motion.header
+        initial={shouldAnimate ? { y: -64, opacity: 0 } : false}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          height: '64px', background: '#fff',
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        }}
       >
-        <div className="max-w-5xl mx-auto h-full flex items-center justify-between px-4">
+        <div style={{
+          maxWidth: '1024px', margin: '0 auto', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 20px',
+        }}>
           {/* Logo */}
-          <div className="flex items-center gap-0.5">
-            <Cross className="w-5 h-5 text-blue-600 rotate-45" />
-            <span className="font-semibold text-slate-900">GenHealth</span>
-            <span className="font-semibold text-blue-600">AI</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Cross style={{ width: 20, height: 20, color: '#2563eb', transform: 'rotate(45deg)' }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', lineHeight: 1.1 }}>
+                <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '16px' }}>GenHealth</span>
+                <span style={{ fontWeight: 600, color: '#2563eb', fontSize: '16px' }}>AI</span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
+                by Gaurav Singh
+              </div>
+            </div>
           </div>
 
           {/* Desktop Tabs */}
-          <div className="hidden md:flex items-center gap-1 relative">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`relative flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
-                  tab === t.key ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <t.icon className="w-4 h-4" />
-                {t.label}
-                {tab === t.key && (
-                  <motion.div
-                    layoutId="tab-indicator"
-                    className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-600 rounded-full"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="desktop-tabs">
+            {tabs.map((t) => {
+              const isActive = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  style={{
+                    position: 'relative',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px',
+                    fontSize: '14px', fontWeight: isActive ? 600 : 500,
+                    color: isActive ? '#2563eb' : '#64748b',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    transition: 'color 150ms',
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = '#334155'; }}
+                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <t.icon style={{ width: 16, height: 16 }} />
+                  {t.label}
+                  {isActive && (
+                    <motion.div
+                      layoutId="tab-underline"
+                      style={{
+                        position: 'absolute', bottom: -1, left: 8, right: 8,
+                        height: '2px', background: '#2563eb', borderRadius: '1px',
+                      }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-          {/* Health indicator */}
-          <div className="flex items-center gap-1.5">
-            {healthStatus === 'loading' && (
-              <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-            )}
+          {/* Health Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {healthStatus === 'loading' && <Loader2 style={{ width: 16, height: 16, color: '#94a3b8', animation: 'spin 1s linear infinite' }} />}
             {healthStatus === 'ok' && (
               <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
+                  <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#34d399', opacity: 0.75, animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite' }} />
+                  <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
                 </span>
-                <span className="text-sm text-emerald-600 font-medium hidden sm:inline">Live</span>
+                <span style={{ fontSize: '13px', color: '#059669', fontWeight: 500 }}>Live</span>
               </>
             )}
             {healthStatus === 'error' && (
               <>
-                <span className="h-2 w-2 rounded-full bg-rose-500" />
-                <span className="text-sm text-rose-500 font-medium hidden sm:inline">Offline</span>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f43f5e' }} />
+                <span style={{ fontSize: '13px', color: '#f43f5e', fontWeight: 500 }}>Offline</span>
               </>
             )}
           </div>
         </div>
-      </motion.nav>
+      </motion.header>
 
-      {/* Mobile Bottom Tabs */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-14 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex h-full">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors ${
-                tab === t.key ? 'text-blue-600' : 'text-slate-400'
-              }`}
-            >
-              <t.icon className="w-5 h-5" />
-              {t.label}
-            </button>
-          ))}
+      {/* MOBILE BOTTOM NAV */}
+      <nav className="mobile-tabs" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+        background: '#ffffff',
+        borderTop: '1px solid #d1d5db',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
+        display: 'none', /* shown via CSS media query */
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          width: '100%', height: '60px',
+        }}>
+          {tabs.map((t) => {
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                style={{
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  gap: '2px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                  padding: '8px 0',
+                }}
+              >
+                <t.icon style={{ width: 20, height: 20, color: isActive ? '#2563eb' : '#9ca3af' }} />
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? '#2563eb' : '#9ca3af',
+                  lineHeight: '1.2',
+                }}>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
-      {/* Main Content */}
+      {/* MAIN CONTENT */}
       <motion.main
-        initial={showEntrance ? { opacity: 0, y: 12 } : false}
+        initial={shouldAnimate ? { opacity: 0, y: 12 } : false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: 'easeOut', delay: 0.1 }}
-        className="pt-16 pb-20 md:pb-8"
+        style={{ paddingTop: '80px', paddingBottom: '80px' }}
       >
-        <div className="max-w-5xl mx-auto px-4">
+        <div style={{ maxWidth: '1024px', margin: '0 auto', padding: '0 16px' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
@@ -158,11 +191,23 @@ function App() {
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
-        <footer className="text-center py-8 text-sm text-slate-400">
+        <footer style={{ textAlign: 'center', padding: '32px 0', fontSize: '13px', color: '#94a3b8' }}>
           Built by Gaurav Singh for GenHealth AI
         </footer>
       </motion.main>
+
+      {/* Responsive CSS */}
+      <style>{`
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 768px) {
+          .desktop-tabs { display: none !important; }
+          .mobile-tabs { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-tabs { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

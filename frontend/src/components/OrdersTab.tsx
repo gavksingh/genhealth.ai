@@ -6,38 +6,24 @@ import { RefreshCw, Plus, FileText, Pencil, Trash2, FileSearch } from 'lucide-re
 import { getOrders, createOrder, updateOrder, deleteOrder } from '../api';
 import type { Order, OrderStatus } from '../types';
 
-const STATUS_CONFIG: Record<OrderStatus, { bg: string; text: string; dot: string }> = {
-  pending:    { bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-500' },
-  processing: { bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500' },
-  complete:   { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  failed:     { bg: 'bg-rose-100',    text: 'text-rose-700',    dot: 'bg-rose-500' },
+const STATUS: Record<OrderStatus, { bg: string; text: string; dot: string }> = {
+  pending:    { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
+  processing: { bg: '#dbeafe', text: '#1e40af', dot: '#3b82f6' },
+  complete:   { bg: '#d1fae5', text: '#065f46', dot: '#10b981' },
+  failed:     { bg: '#ffe4e6', text: '#9f1239', dot: '#f43f5e' },
 };
 
-function StatusBadge({ status }: { status: OrderStatus }) {
-  const c = STATUS_CONFIG[status];
+function Badge({ status }: { status: OrderStatus }) {
+  const s = STATUS[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      padding: '3px 10px', borderRadius: 999,
+      fontSize: '12px', fontWeight: 500, background: s.bg, color: s.text,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot }} />
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
-  );
-}
-
-function SkeletonRows() {
-  return (
-    <>
-      {[1, 2, 3, 4].map((i) => (
-        <tr key={i} className="animate-pulse">
-          <td className="px-4 py-3"><div className="h-4 w-8 bg-slate-200 rounded" /></td>
-          <td className="px-4 py-3"><div className="h-4 w-32 bg-slate-200 rounded" /></td>
-          <td className="px-4 py-3"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
-          <td className="px-4 py-3"><div className="h-5 w-20 bg-slate-200 rounded-full" /></td>
-          <td className="px-4 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-          <td className="px-4 py-3"><div className="h-4 w-24 bg-slate-200 rounded" /></td>
-          <td className="px-4 py-3"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
-        </tr>
-      ))}
-    </>
   );
 }
 
@@ -51,15 +37,10 @@ export default function OrdersTab() {
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const formRef = useRef<HTMLFormElement>(null);
 
-  const fetchOrders = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    try {
-      setOrders(await getOrders());
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const fetchOrders = async (refresh = false) => {
+    if (refresh) setRefreshing(true); else setLoading(true);
+    try { setOrders(await getOrders()); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
   useEffect(() => { fetchOrders(); }, []);
@@ -67,134 +48,88 @@ export default function OrdersTab() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const firstName = (fd.get('first_name') as string).trim();
-    const lastName = (fd.get('last_name') as string).trim();
+    const fn = (fd.get('first_name') as string).trim();
+    const ln = (fd.get('last_name') as string).trim();
     const dob = (fd.get('date_of_birth') as string).trim();
     const notes = (fd.get('notes') as string).trim();
-
-    if (!firstName || !lastName || !dob) {
-      toast.error('First name, last name, and date of birth are required');
-      return;
-    }
-
+    if (!fn || !ln || !dob) { toast.error('All required fields must be filled'); return; }
     try {
-      const order = await createOrder({
-        first_name: firstName,
-        last_name: lastName,
-        date_of_birth: dob,
-        notes: notes || undefined,
-      });
+      const order = await createOrder({ first_name: fn, last_name: ln, date_of_birth: dob, notes: notes || undefined });
       setShowForm(false);
       formRef.current?.reset();
-      setNewIds((prev) => new Set(prev).add(order.id));
-      setTimeout(() => setNewIds((prev) => { const n = new Set(prev); n.delete(order.id); return n; }), 2000);
+      setNewIds(prev => new Set(prev).add(order.id));
+      setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(order.id); return n; }), 2000);
       await fetchOrders();
-      toast.success('Order created successfully');
-    } catch {
-      toast.error('Failed to create order');
-    }
+      toast.success('Order created');
+    } catch { toast.error('Failed to create order'); }
   };
 
-  const handleStatusChange = async (id: number, status: OrderStatus) => {
-    try {
-      await updateOrder(id, { status });
-      setEditingId(null);
-      await fetchOrders();
-      toast.success('Status updated');
-    } catch {
-      toast.error('Failed to update status');
-    }
+  const handleStatus = async (id: number, status: OrderStatus) => {
+    try { await updateOrder(id, { status }); setEditingId(null); await fetchOrders(); toast.success('Status updated'); }
+    catch { toast.error('Failed to update'); }
   };
 
   const handleDelete = async (id: number) => {
-    try {
-      await deleteOrder(id);
-      setDeletingId(null);
-      await fetchOrders();
-      toast.success('Order deleted');
-    } catch {
-      toast.error('Failed to delete order');
-    }
+    try { await deleteOrder(id); setDeletingId(null); await fetchOrders(); toast.success('Order deleted'); }
+    catch { toast.error('Failed to delete'); }
   };
 
+  const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' };
+  const td: React.CSSProperties = { padding: '14px 16px', fontSize: '14px', borderBottom: '1px solid #f1f5f9' };
+
   return (
-    <div className="py-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+    <div style={{ paddingTop: 8 }}>
+      {/* Card container */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-slate-900">Orders</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>Orders</h2>
             {!loading && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-slate-100 text-slate-600">
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b', background: '#f1f5f9', padding: '2px 10px', borderRadius: 999 }}>
                 {orders.length}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-1.5 bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              New Order
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setShowForm(!showForm)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+              <Plus style={{ width: 15, height: 15 }} /> New Order
             </button>
-            <button
-              onClick={() => fetchOrders(true)}
-              className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <button onClick={() => fetchOrders(true)}
+              style={{ padding: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', borderRadius: '6px' }}>
+              <RefreshCw style={{ width: 16, height: 16, ...(refreshing ? { animation: 'spin 1s linear infinite' } : {}) }} />
             </button>
           </div>
         </div>
 
-        {/* New Order Form */}
+        {/* Create Form */}
         <AnimatePresence>
           {showForm && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-b border-slate-100"
-            >
-              <form ref={formRef} onSubmit={handleCreate} className="p-5 bg-slate-50/50">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                  <input
-                    name="first_name"
-                    placeholder="First Name *"
-                    required
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <input
-                    name="last_name"
-                    placeholder="Last Name *"
-                    required
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <input
-                    name="date_of_birth"
-                    placeholder="Date of Birth (MM/DD/YYYY) *"
-                    required
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              style={{ overflow: 'hidden', borderBottom: '1px solid #f1f5f9' }}>
+              <form ref={formRef} onSubmit={handleCreate}
+                style={{ padding: '20px', background: '#fafbfc', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                  {[
+                    { name: 'first_name', placeholder: 'First Name *' },
+                    { name: 'last_name', placeholder: 'Last Name *' },
+                    { name: 'date_of_birth', placeholder: 'DOB (MM/DD/YYYY) *' },
+                  ].map((f) => (
+                    <input key={f.name} name={f.name} placeholder={f.placeholder} required
+                      style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', outline: 'none', width: '100%' }} />
+                  ))}
                 </div>
-                <textarea
-                  name="notes"
-                  placeholder="Notes (optional)"
-                  rows={2}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
+                <textarea name="notes" placeholder="Notes (optional)" rows={2}
+                  style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', outline: 'none', resize: 'none', width: '100%' }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit"
+                    style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                     Create Order
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="border border-slate-200 text-slate-600 rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors"
-                  >
+                  <button type="button" onClick={() => setShowForm(false)}
+                    style={{ background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
                     Cancel
                   </button>
                 </div>
@@ -203,168 +138,143 @@ export default function OrdersTab() {
           )}
         </AnimatePresence>
 
-        {/* Table */}
+        {/* Content */}
         {loading ? (
-          <table className="w-full">
-            <thead>
-              <tr className="bg-slate-50/80">
-                {['ID', 'Patient Name', 'Date of Birth', 'Status', 'Source', 'Created', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody><SkeletonRows /></tbody>
-          </table>
+          <div style={{ padding: '16px 0' }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, padding: '14px 20px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ width: 40, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ width: 140, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ width: 100, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ width: 80, height: 20, background: '#e2e8f0', borderRadius: 12 }} />
+                <div style={{ flex: 1 }} />
+                <div style={{ width: 100, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4">
-            <FileSearch className="w-12 h-12 text-slate-300 mb-4" />
-            <p className="text-slate-900 font-medium mb-1">No orders yet</p>
-            <p className="text-slate-500 text-sm">Upload a medical document or create an order manually.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 20px' }}>
+            <FileSearch style={{ width: 48, height: 48, color: '#cbd5e1', marginBottom: 16 }} />
+            <p style={{ fontWeight: 500, color: '#0f172a', marginBottom: 4 }}>No orders yet</p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>Upload a medical document or create an order manually.</p>
           </div>
         ) : (
-          /* Desktop table */
-          <div className="overflow-x-auto">
-            <table className="w-full hidden md:table">
-              <thead>
-                <tr className="bg-slate-50/80">
-                  {['ID', 'Patient Name', 'Date of Birth', 'Status', 'Source', 'Created', 'Actions'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
+          <>
+            {/* Desktop table */}
+            <div className="desktop-table" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>ID</th>
+                    <th style={th}>Patient Name</th>
+                    <th style={th}>DOB</th>
+                    <th style={th}>Status</th>
+                    <th style={th}>Source</th>
+                    <th style={th}>Created</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {orders.map((o) => (
-                    <motion.tr
-                      key={o.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1, backgroundColor: deletingId === o.id ? '#fff1f2' : newIds.has(o.id) ? '#eff6ff' : 'transparent' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors"
+                    <tr key={o.id} style={{
+                      background: deletingId === o.id ? '#fff1f2' : newIds.has(o.id) ? '#eff6ff' : 'transparent',
+                      transition: 'background 300ms',
+                    }}
+                    onMouseEnter={(e) => { if (deletingId !== o.id && !newIds.has(o.id)) e.currentTarget.style.background = '#f8fafc'; }}
+                    onMouseLeave={(e) => { if (deletingId !== o.id && !newIds.has(o.id)) e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <td className="px-4 py-3 font-mono text-sm text-slate-400">{o.id}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{o.first_name} {o.last_name}</td>
-                      <td className="px-4 py-3 text-slate-600">{o.date_of_birth}</td>
-                      <td className="px-4 py-3">
+                      <td style={{ ...td, fontFamily: 'monospace', color: '#94a3b8', fontSize: '13px' }}>{o.id}</td>
+                      <td style={{ ...td, fontWeight: 500, color: '#0f172a' }}>{o.first_name} {o.last_name}</td>
+                      <td style={{ ...td, color: '#475569' }}>{o.date_of_birth}</td>
+                      <td style={td}>
                         {editingId === o.id ? (
-                          <select
-                            autoFocus
-                            defaultValue={o.status}
-                            onChange={(e) => handleStatusChange(o.id, e.target.value as OrderStatus)}
+                          <select autoFocus defaultValue={o.status}
+                            onChange={(e) => handleStatus(o.id, e.target.value as OrderStatus)}
                             onBlur={() => setEditingId(null)}
-                            className="border border-slate-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
+                            style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: '13px', outline: 'none' }}>
                             <option value="pending">Pending</option>
                             <option value="processing">Processing</option>
                             <option value="complete">Complete</option>
                             <option value="failed">Failed</option>
                           </select>
-                        ) : (
-                          <StatusBadge status={o.status} />
-                        )}
+                        ) : <Badge status={o.status} />}
                       </td>
-                      <td className="px-4 py-3">
-                        {o.extracted_from_document ? (
-                          <span className="flex items-center gap-1.5 text-sm text-slate-500">
-                            <FileText className="w-3.5 h-3.5 text-blue-400" />
-                            PDF Upload
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-sm text-slate-500">
-                            <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                            Manual
-                          </span>
-                        )}
+                      <td style={td}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '13px', color: '#64748b' }}>
+                          {o.extracted_from_document
+                            ? <><FileText style={{ width: 14, height: 14, color: '#3b82f6' }} />PDF Upload</>
+                            : <><Pencil style={{ width: 14, height: 14, color: '#94a3b8' }} />Manual</>}
+                        </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span title={new Date(o.created_at).toISOString()} className="text-slate-500 text-sm">
+                      <td style={td}>
+                        <span title={new Date(o.created_at).toISOString()} style={{ color: '#64748b', fontSize: '13px' }}>
                           {formatDistanceToNow(new Date(o.created_at), { addSuffix: true })}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td style={{ ...td, textAlign: 'right' }}>
                         {deletingId === o.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleDelete(o.id)}
-                              className="bg-rose-600 text-white px-2.5 py-1 rounded text-xs font-medium hover:bg-rose-700 transition-colors"
-                            >
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button onClick={() => handleDelete(o.id)}
+                              style={{ background: '#e11d48', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
                               Confirm
                             </button>
-                            <button
-                              onClick={() => setDeletingId(null)}
-                              className="border border-slate-200 text-slate-500 px-2.5 py-1 rounded text-xs font-medium hover:bg-slate-50 transition-colors"
-                            >
+                            <button onClick={() => setDeletingId(null)}
+                              style={{ background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>
                               Cancel
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => setEditingId(o.id)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors rounded"
-                              title="Edit status"
-                            >
-                              <Pencil className="w-4 h-4" />
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setEditingId(o.id)} title="Edit status"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 6, borderRadius: 4 }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#2563eb'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>
+                              <Pencil style={{ width: 15, height: 15 }} />
                             </button>
-                            <button
-                              onClick={() => setDeletingId(o.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
+                            <button onClick={() => setDeletingId(o.id)} title="Delete"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 6, borderRadius: 4 }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#e11d48'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>
+                              <Trash2 style={{ width: 15, height: 15 }} />
                             </button>
                           </div>
                         )}
                       </td>
-                    </motion.tr>
+                    </tr>
                   ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
 
             {/* Mobile card view */}
-            <div className="md:hidden space-y-3 p-4">
+            <div className="mobile-cards" style={{ display: 'none', padding: 12, gap: 10, flexDirection: 'column' }}>
               {orders.map((o) => (
-                <div
-                  key={o.id}
-                  className={`bg-white border rounded-lg p-4 ${deletingId === o.id ? 'bg-rose-50 border-rose-200' : 'border-slate-200'}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-medium text-slate-900">{o.first_name} {o.last_name}</span>
-                    <StatusBadge status={o.status} />
+                <div key={o.id} style={{
+                  border: '1px solid #e2e8f0', borderRadius: 10, padding: 16,
+                  background: deletingId === o.id ? '#fff1f2' : newIds.has(o.id) ? '#eff6ff' : '#fff',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontWeight: 500, color: '#0f172a', fontSize: '15px' }}>{o.first_name} {o.last_name}</span>
+                    <Badge status={o.status} />
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                    <div>
-                      <p className="text-slate-400 text-xs">DOB</p>
-                      <p className="text-slate-600">{o.date_of_birth}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs">Source</p>
-                      <p className="text-slate-600">{o.extracted_from_document ? 'PDF Upload' : 'Manual'}</p>
-                    </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                    <div><p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>DOB</p><p style={{ fontSize: '14px', color: '#475569' }}>{o.date_of_birth}</p></div>
+                    <div><p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Source</p><p style={{ fontSize: '14px', color: '#475569' }}>{o.extracted_from_document ? 'PDF Upload' : 'Manual'}</p></div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs">
-                      {formatDistanceToNow(new Date(o.created_at), { addSuffix: true })}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>{formatDistanceToNow(new Date(o.created_at), { addSuffix: true })}</span>
                     {deletingId === o.id ? (
-                      <div className="flex gap-1.5">
-                        <button onClick={() => handleDelete(o.id)} className="bg-rose-600 text-white px-3 py-1.5 rounded text-xs font-medium">
-                          Confirm
-                        </button>
-                        <button onClick={() => setDeletingId(null)} className="border border-slate-200 px-3 py-1.5 rounded text-xs">
-                          Cancel
-                        </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleDelete(o.id)} style={{ background: '#e11d48', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>Confirm</button>
+                        <button onClick={() => setDeletingId(null)} style={{ background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, padding: '8px 16px', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                       </div>
                     ) : (
-                      <div className="flex gap-1">
-                        <button onClick={() => setEditingId(o.id)} className="p-2 text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center">
-                          <Pencil className="w-4 h-4" />
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => setEditingId(o.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 10, minHeight: 44, minWidth: 44 }}>
+                          <Pencil style={{ width: 16, height: 16 }} />
                         </button>
-                        <button onClick={() => setDeletingId(o.id)} className="p-2 text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center">
-                          <Trash2 className="w-4 h-4" />
+                        <button onClick={() => setDeletingId(o.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 10, minHeight: 44, minWidth: 44 }}>
+                          <Trash2 style={{ width: 16, height: 16 }} />
                         </button>
                       </div>
                     )}
@@ -372,9 +282,19 @@ export default function OrdersTab() {
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-table { display: none !important; }
+          .mobile-cards { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-cards { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

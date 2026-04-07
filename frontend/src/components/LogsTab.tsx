@@ -4,198 +4,173 @@ import { Clock } from 'lucide-react';
 import { getLogs } from '../api';
 import type { ActivityLog } from '../types';
 
-const METHOD_CONFIG: Record<string, { bg: string; text: string }> = {
-  GET:    { bg: 'bg-slate-100',  text: 'text-slate-700' },
-  POST:   { bg: 'bg-blue-100',   text: 'text-blue-700' },
-  PUT:    { bg: 'bg-amber-100',  text: 'text-amber-700' },
-  PATCH:  { bg: 'bg-violet-100', text: 'text-violet-700' },
-  DELETE: { bg: 'bg-rose-100',   text: 'text-rose-700' },
+const METHOD: Record<string, { bg: string; text: string }> = {
+  GET:    { bg: '#f1f5f9', text: '#475569' },
+  POST:   { bg: '#dbeafe', text: '#1e40af' },
+  PUT:    { bg: '#fef3c7', text: '#92400e' },
+  PATCH:  { bg: '#ede9fe', text: '#5b21b6' },
+  DELETE: { bg: '#ffe4e6', text: '#9f1239' },
 };
 
-function statusColor(code: number | null) {
-  if (!code) return 'text-slate-400';
-  if (code < 300) return 'text-emerald-600';
-  if (code < 500) return 'text-amber-600';
-  return 'text-rose-600';
+function statusColor(c: number | null) {
+  if (!c) return '#94a3b8';
+  if (c < 300) return '#059669';
+  if (c < 500) return '#d97706';
+  return '#e11d48';
 }
 
 function durationColor(ms: number | null) {
-  if (ms == null) return 'text-slate-400';
-  if (ms < 100) return 'text-emerald-600';
-  if (ms < 500) return 'text-amber-600';
-  return 'text-rose-600';
+  if (ms == null) return '#94a3b8';
+  if (ms < 100) return '#059669';
+  if (ms < 500) return '#d97706';
+  return '#e11d48';
 }
 
 export default function LogsTab() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [newLogIds, setNewLogIds] = useState<Set<number>>(new Set());
-  const prevLogIdsRef = useRef<Set<number>>(new Set());
+  const prevIds = useRef<Set<number>>(new Set());
 
-  // Initial fetch
   useEffect(() => {
-    getLogs().then((data) => {
-      setLogs(data);
-      prevLogIdsRef.current = new Set(data.map((l) => l.id));
+    getLogs().then((d) => {
+      setLogs(d);
+      prevIds.current = new Set(d.map(l => l.id));
       setLastUpdated(new Date());
     }).finally(() => setLoading(false));
   }, []);
 
-  // Auto-refresh every 10s
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const iv = setInterval(async () => {
       try {
-        const data = await getLogs();
-        const newIds = new Set<number>();
-        data.forEach((l) => {
-          if (!prevLogIdsRef.current.has(l.id)) newIds.add(l.id);
-        });
-        if (newIds.size > 0) {
-          setNewLogIds(newIds);
-          setTimeout(() => setNewLogIds(new Set()), 1500);
-        }
-        prevLogIdsRef.current = new Set(data.map((l) => l.id));
-        setLogs(data);
+        const d = await getLogs();
+        const fresh = new Set<number>();
+        d.forEach(l => { if (!prevIds.current.has(l.id)) fresh.add(l.id); });
+        if (fresh.size > 0) { setNewLogIds(fresh); setTimeout(() => setNewLogIds(new Set()), 1500); }
+        prevIds.current = new Set(d.map(l => l.id));
+        setLogs(d);
         setLastUpdated(new Date());
-      } catch {
-        // silent fail on background refresh
-      }
+      } catch { /* silent */ }
     }, 10000);
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, []);
 
-  // Update "seconds ago" counter
   useEffect(() => {
-    const tick = setInterval(() => {
-      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
-    }, 1000);
-    return () => clearInterval(tick);
+    const iv = setInterval(() => setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000)), 1000);
+    return () => clearInterval(iv);
   }, [lastUpdated]);
 
+  const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' };
+  const td: React.CSSProperties = { padding: '12px 16px', fontSize: '14px', borderBottom: '1px solid #f1f5f9' };
+
   return (
-    <div className="py-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+    <div style={{ paddingTop: 8 }}>
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-slate-400" />
-            <h2 className="text-xl font-semibold text-slate-900">Activity Log</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Clock style={{ width: 18, height: 18, color: '#94a3b8' }} />
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>Activity Log</h2>
           </div>
-          <div className="text-xs text-slate-400">
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
             Auto-refreshes every 10s &middot; Updated {secondsAgo}s ago
-          </div>
+          </span>
         </div>
 
         {loading ? (
-          <div className="p-8">
-            <table className="w-full">
-              <tbody>
-                {[1, 2, 3, 4].map((i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-4 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-5 w-12 bg-slate-200 rounded-full" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-8 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-12 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ padding: 20 }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ width: 80, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ width: 50, height: 20, background: '#e2e8f0', borderRadius: 10 }} />
+                <div style={{ width: 200, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+                <div style={{ flex: 1 }} />
+                <div style={{ width: 40, height: 16, background: '#e2e8f0', borderRadius: 4 }} />
+              </div>
+            ))}
           </div>
         ) : logs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4">
-            {/* Radar animation */}
-            <div className="relative w-12 h-12 mb-4">
-              <span className="absolute inset-0 rounded-full border-2 border-slate-200 animate-ping opacity-20" />
-              <span className="absolute inset-2 rounded-full border-2 border-slate-200 animate-ping opacity-20" style={{ animationDelay: '0.5s' }} />
-              <span className="absolute inset-4 rounded-full bg-slate-300" />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '64px 20px' }}>
+            <div style={{ position: 'relative', width: 48, height: 48, marginBottom: 16 }}>
+              <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid #e2e8f0', animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.3 }} />
+              <span style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: '2px solid #e2e8f0', animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite 0.5s', opacity: 0.3 }} />
+              <span style={{ position: 'absolute', inset: 16, borderRadius: '50%', background: '#cbd5e1' }} />
             </div>
-            <p className="text-slate-900 font-medium mb-1">No activity recorded yet</p>
-            <p className="text-slate-500 text-sm text-center max-w-xs">
-              Make an API request to see it logged here automatically.
-            </p>
+            <p style={{ fontWeight: 500, color: '#0f172a', marginBottom: 4 }}>No activity recorded yet</p>
+            <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', maxWidth: 300 }}>Make an API request to see it logged here automatically.</p>
           </div>
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="overflow-x-auto hidden md:block">
-              <table className="w-full">
+            {/* Desktop */}
+            <div className="desktop-logs" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr className="bg-slate-50/80">
-                    {['Time', 'Method', 'Endpoint', 'Status', 'Duration', 'IP'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                    ))}
+                  <tr>
+                    <th style={th}>Time</th>
+                    <th style={th}>Method</th>
+                    <th style={th}>Endpoint</th>
+                    <th style={th}>Status</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Duration</th>
+                    <th style={th} className="ip-col">IP</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((l) => (
-                    <tr
-                      key={l.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors"
-                      style={newLogIds.has(l.id) ? { animation: 'newRowFlash 1.5s ease-out' } : {}}
-                    >
-                      <td className="px-4 py-3">
-                        <span title={new Date(l.timestamp).toISOString()} className="text-slate-500 text-sm">
-                          {formatDistanceToNow(new Date(l.timestamp), { addSuffix: true })}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {(() => {
-                          const mc = METHOD_CONFIG[l.method] || { bg: 'bg-slate-100', text: 'text-slate-700' };
-                          return (
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide ${mc.bg} ${mc.text}`}>
-                              {l.method}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-slate-600 truncate max-w-[300px] block">
-                          {l.path}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`font-semibold ${statusColor(l.status_code)}`}>
-                          {l.status_code ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {l.duration_ms != null ? (
-                          <span className={`font-medium ${durationColor(l.duration_ms)}`}>
-                            {l.duration_ms.toFixed(0)}<span className="text-slate-400 text-xs ml-0.5">ms</span>
+                  {logs.map((l) => {
+                    const mc = METHOD[l.method] || { bg: '#f1f5f9', text: '#475569' };
+                    return (
+                      <tr key={l.id} style={newLogIds.has(l.id) ? { animation: 'newRowFlash 1.5s ease-out' } : {}}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ ...td, color: '#64748b', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                          <span title={new Date(l.timestamp).toISOString()}>
+                            {formatDistanceToNow(new Date(l.timestamp), { addSuffix: true })}
                           </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400 text-xs">
-                        {l.client_ip || '—'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td style={td}>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: '11px', fontWeight: 600, letterSpacing: '0.03em', background: mc.bg, color: mc.text }}>
+                            {l.method}
+                          </span>
+                        </td>
+                        <td style={{ ...td, fontFamily: '"SF Mono","Fira Code",monospace', fontSize: '13px', color: '#475569', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {l.path}
+                        </td>
+                        <td style={{ ...td, fontWeight: 600, color: statusColor(l.status_code) }}>
+                          {l.status_code ?? '—'}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {l.duration_ms != null ? (
+                            <span style={{ fontWeight: 500, color: durationColor(l.duration_ms) }}>
+                              {l.duration_ms.toFixed(0)}<span style={{ color: '#94a3b8', fontSize: '12px', marginLeft: 2 }}>ms</span>
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ ...td, color: '#94a3b8', fontSize: '12px' }} className="ip-col">
+                          {l.client_ip || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            {/* Mobile card view */}
-            <div className="md:hidden space-y-3 p-4">
+            {/* Mobile */}
+            <div className="mobile-logs" style={{ display: 'none', padding: 12, gap: 8, flexDirection: 'column' }}>
               {logs.map((l) => {
-                const mc = METHOD_CONFIG[l.method] || { bg: 'bg-slate-100', text: 'text-slate-700' };
+                const mc = METHOD[l.method] || { bg: '#f1f5f9', text: '#475569' };
                 return (
-                  <div key={l.id} className="border border-slate-200 rounded-lg p-3" style={newLogIds.has(l.id) ? { animation: 'newRowFlash 1.5s ease-out' } : {}}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${mc.bg} ${mc.text}`}>{l.method}</span>
-                      <span className={`font-semibold text-sm ${statusColor(l.status_code)}`}>{l.status_code}</span>
+                  <div key={l.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, background: '#fff', ...(newLogIds.has(l.id) ? { animation: 'newRowFlash 1.5s ease-out' } : {}) }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '11px', fontWeight: 600, background: mc.bg, color: mc.text }}>{l.method}</span>
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: statusColor(l.status_code) }}>{l.status_code}</span>
                     </div>
-                    <p className="font-mono text-sm text-slate-600 truncate mb-2">{l.path}</p>
-                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    <p style={{ fontFamily: 'monospace', fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 8 }}>{l.path}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8' }}>
                       <span>{formatDistanceToNow(new Date(l.timestamp), { addSuffix: true })}</span>
-                      {l.duration_ms != null && (
-                        <span className={`font-medium ${durationColor(l.duration_ms)}`}>
-                          {l.duration_ms.toFixed(0)}ms
-                        </span>
-                      )}
+                      {l.duration_ms != null && <span style={{ fontWeight: 500, color: durationColor(l.duration_ms) }}>{l.duration_ms.toFixed(0)}ms</span>}
                     </div>
                   </div>
                 );
@@ -204,6 +179,18 @@ export default function LogsTab() {
           </>
         )}
       </div>
+
+      <style>{`
+        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+        @media (max-width: 768px) {
+          .desktop-logs { display: none !important; }
+          .mobile-logs { display: flex !important; }
+          .ip-col { display: none !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-logs { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

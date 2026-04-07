@@ -32,10 +32,7 @@ export default function UploadTab({ onNavigate }: { onNavigate: (tab: 'upload' |
     if (f) handleFile(f);
   }, []);
 
-  const removeFile = () => {
-    setFile(null);
-    setState('idle');
-  };
+  const removeFile = () => { setFile(null); setState('idle'); };
 
   const onSubmit = async () => {
     if (!file) return;
@@ -54,80 +51,70 @@ export default function UploadTab({ onNavigate }: { onNavigate: (tab: 'upload' |
     }
   };
 
-  const reset = () => {
-    setFile(null);
-    setState('idle');
-    setResult(null);
-    setErrorMsg('');
-  };
+  const reset = () => { setFile(null); setState('idle'); setResult(null); setErrorMsg(''); };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
-  const confidenceColor = (c: number) =>
-    c >= 0.9 ? 'text-emerald-600' : c >= 0.7 ? 'text-amber-600' : 'text-rose-600';
-  const confidenceBg = (c: number) =>
-    c >= 0.9 ? 'bg-emerald-500' : c >= 0.7 ? 'bg-amber-500' : 'bg-rose-500';
+  const confColor = (c: number) => c >= 0.9 ? '#059669' : c >= 0.7 ? '#d97706' : '#e11d48';
+  const confBg = (c: number) => c >= 0.9 ? '#10b981' : c >= 0.7 ? '#f59e0b' : '#f43f5e';
+
+  const card: React.CSSProperties = {
+    background: '#fff', borderRadius: '16px', maxWidth: '540px',
+    margin: '0 auto', boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+  };
 
   return (
-    <div className="min-h-[calc(100vh-10rem)] flex items-center justify-center py-8">
-      <div className="w-full max-w-[560px]">
+    <div style={{ minHeight: 'calc(100vh - 220px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
+      <div style={{ width: '100%', maxWidth: '540px' }}>
         <AnimatePresence mode="wait">
-          {/* IDLE / SELECTED STATE */}
+
+          {/* IDLE / SELECTED / EXTRACTING */}
           {(state === 'idle' || state === 'selected' || state === 'extracting') && (
             <motion.div
-              key="upload-card"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              className={`bg-white rounded-2xl p-12 md:p-12 border shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 ${
-                dragOver
-                  ? 'border-2 border-solid border-blue-600 bg-blue-50/50'
-                  : state === 'extracting'
-                  ? 'border border-blue-200'
-                  : 'border border-dashed border-slate-300'
-              }`}
-              style={state === 'extracting' ? { animation: 'borderPulse 2s ease-in-out infinite' } : {}}
+              key="upload"
+              initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+              style={{
+                ...card, padding: '48px 40px',
+                border: dragOver ? '2px solid #2563eb' : '2px dashed #cbd5e1',
+                background: dragOver ? '#eff6ff' : '#fff',
+                cursor: state === 'idle' ? 'pointer' : 'default',
+                transition: 'border 200ms, background 200ms',
+                ...(state === 'extracting' ? { animation: 'borderPulse 2s ease-in-out infinite', border: '2px solid #93c5fd' } : {}),
+              }}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
               onClick={() => state === 'idle' && document.getElementById('file-input')?.click()}
             >
-              <input
-                id="file-input"
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-              />
+              <input id="file-input" type="file" accept=".pdf" style={{ display: 'none' }}
+                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
               <AnimatePresence mode="wait">
-                {(state === 'idle') && (
-                  <motion.div
-                    key="idle"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center text-center cursor-pointer"
-                  >
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-5 transition-transform duration-200 ${
-                      dragOver ? 'bg-blue-100 scale-110' : 'bg-blue-50'
-                    }`}>
-                      <CloudUpload className="w-8 h-8 text-blue-600" />
+                {state === 'idle' && (
+                  <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <div style={{
+                      width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#eff6ff', marginBottom: 20, transition: 'transform 200ms',
+                      transform: dragOver ? 'scale(1.1)' : 'scale(1)',
+                    }}>
+                      <CloudUpload style={{ width: 32, height: 32, color: '#2563eb' }} />
                     </div>
-                    <h2 className="text-2xl font-semibold text-slate-900 mb-2">Upload Medical Document</h2>
-                    <p className="text-slate-500 text-sm max-w-[380px] mb-6">
+                    <h2 style={{ fontSize: '24px', fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>
+                      Upload Medical Document
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '14px', maxWidth: 380, marginBottom: 24, lineHeight: '1.5' }}>
                       Drag and drop a PDF file, or click to browse. Patient information is extracted automatically using Gemini AI.
                     </p>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        document.getElementById('file-input')?.click();
+                      onClick={(e) => { e.stopPropagation(); document.getElementById('file-input')?.click(); }}
+                      style={{
+                        border: '2px solid #2563eb', color: '#2563eb', background: 'transparent',
+                        borderRadius: '8px', padding: '10px 28px', fontSize: '14px', fontWeight: 600,
+                        cursor: 'pointer', transition: 'background 150ms',
                       }}
-                      className="border border-blue-600 text-blue-600 rounded-lg px-6 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
                       Choose File
                     </button>
@@ -135,39 +122,35 @@ export default function UploadTab({ onNavigate }: { onNavigate: (tab: 'upload' |
                 )}
 
                 {(state === 'selected' || state === 'extracting') && file && (
-                  <motion.div
-                    key="selected"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center"
+                  <motion.div key="selected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="w-full flex items-center gap-3 p-3 bg-slate-50 rounded-lg mb-5">
-                      <FileText className="w-6 h-6 text-rose-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-800 font-medium truncate">{file.name}</p>
-                        <p className="text-slate-500 text-sm">{formatFileSize(file.size)}</p>
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', background: '#f8fafc', borderRadius: '10px', marginBottom: 20,
+                    }}>
+                      <FileText style={{ width: 24, height: 24, color: '#e11d48', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ color: '#1e293b', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</p>
+                        <p style={{ color: '#94a3b8', fontSize: '13px' }}>{formatSize(file.size)}</p>
                       </div>
                       {state === 'selected' && (
-                        <button onClick={removeFile} className="text-slate-400 hover:text-slate-600 transition-colors">
-                          <X className="w-5 h-5" />
+                        <button onClick={removeFile} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}>
+                          <X style={{ width: 18, height: 18 }} />
                         </button>
                       )}
                     </div>
-                    <button
-                      onClick={onSubmit}
-                      disabled={state === 'extracting'}
-                      className="w-full bg-blue-600 text-white rounded-lg py-3 font-semibold text-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
+                    <button onClick={onSubmit} disabled={state === 'extracting'}
+                      style={{
+                        width: '100%', padding: '14px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+                        background: state === 'extracting' ? '#93c5fd' : '#2563eb', color: '#fff',
+                        border: 'none', cursor: state === 'extracting' ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'background 150ms',
+                      }}>
                       {state === 'extracting' ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Extracting with Gemini AI...
-                        </>
-                      ) : (
-                        'Extract Patient Data →'
-                      )}
+                        <><Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />Extracting with Gemini AI...</>
+                      ) : 'Extract Patient Data →'}
                     </button>
                   </motion.div>
                 )}
@@ -175,97 +158,73 @@ export default function UploadTab({ onNavigate }: { onNavigate: (tab: 'upload' |
             </motion.div>
           )}
 
-          {/* SUCCESS STATE */}
+          {/* SUCCESS */}
           {state === 'success' && result && (
-            <motion.div
-              key="success-card"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-10 border border-slate-200 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
-            >
-              <div className="flex flex-col items-center text-center mb-8">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
+            <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              style={{ ...card, padding: '40px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 28 }}>
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4"
-                >
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                  style={{ width: 56, height: 56, borderRadius: '50%', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  <CheckCircle2 style={{ width: 28, height: 28, color: '#059669' }} />
                 </motion.div>
-                <h2 className="text-xl font-semibold text-slate-900">Data Extracted Successfully</h2>
+                <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a' }}>Data Extracted Successfully</h2>
               </div>
 
-              {/* Data cards */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
                 {[
                   { label: 'First Name', value: result.extracted_data.first_name },
                   { label: 'Last Name', value: result.extracted_data.last_name },
                   { label: 'Date of Birth', value: result.extracted_data.date_of_birth },
                 ].map((f) => (
-                  <div key={f.label} className="flex-1 bg-slate-50 border border-slate-100 rounded-lg p-4">
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">{f.label}</p>
-                    <p className="text-lg font-semibold text-slate-900">{f.value}</p>
+                  <div key={f.label} style={{ flex: '1 1 140px', background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '14px' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{f.label}</p>
+                    <p style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>{f.value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Confidence */}
-              <div className="mb-6">
-                <div className={`flex items-center gap-1.5 text-sm font-medium mb-2 ${confidenceColor(result.extracted_data.confidence)}`}>
-                  <Sparkles className="w-4 h-4" />
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '14px', fontWeight: 500, color: confColor(result.extracted_data.confidence), marginBottom: 8 }}>
+                  <Sparkles style={{ width: 16, height: 16 }} />
                   Extraction Confidence: {(result.extracted_data.confidence * 100).toFixed(0)}%
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${result.extracted_data.confidence * 100}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className={`h-full rounded-full ${confidenceBg(result.extracted_data.confidence)}`}
-                  />
+                <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${result.extracted_data.confidence * 100}%` }}
+                    transition={{ duration: 0.6 }}
+                    style={{ height: '100%', borderRadius: 4, background: confBg(result.extracted_data.confidence) }} />
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => onNavigate('orders')}
-                  className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors"
-                >
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => onNavigate('orders')}
+                  style={{ flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   View in Orders
                 </button>
-                <button
-                  onClick={reset}
-                  className="flex-1 border border-slate-200 text-slate-600 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={reset}
+                  style={{ flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 500, background: '#fff', color: '#475569', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
                   Upload Another
                 </button>
               </div>
             </motion.div>
           )}
 
-          {/* ERROR STATE */}
+          {/* ERROR */}
           {state === 'error' && (
-            <motion.div
-              key="error-card"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-rose-50 rounded-2xl p-10 border border-rose-200 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
-            >
-              <div className="flex flex-col items-center text-center">
-                <AlertCircle className="w-8 h-8 text-rose-500 mb-4" />
-                <h2 className="text-xl font-semibold text-rose-700 mb-2">Extraction Failed</h2>
-                <p className="text-sm text-slate-600 mb-6">{errorMsg}</p>
-                <button
-                  onClick={reset}
-                  className="bg-rose-600 text-white rounded-lg px-6 py-2.5 text-sm font-semibold hover:bg-rose-700 transition-colors"
-                >
+            <motion.div key="error" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              style={{ ...card, padding: '40px', background: '#fff1f2', border: '1px solid #fecdd3' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                <AlertCircle style={{ width: 32, height: 32, color: '#e11d48', marginBottom: 16 }} />
+                <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#be123c', marginBottom: 8 }}>Extraction Failed</h2>
+                <p style={{ fontSize: '14px', color: '#64748b', marginBottom: 24 }}>{errorMsg}</p>
+                <button onClick={reset}
+                  style={{ padding: '12px 32px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, background: '#e11d48', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   Try Again
                 </button>
               </div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
     </div>
