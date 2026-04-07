@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,10 +18,20 @@ Base.metadata.create_all(bind=engine)
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Pre-initialize Gemini client to avoid cold-start penalty on first upload."""
+    from app.services.pdf_extractor import warm_up_client
+    warm_up_client()
+    yield
+
+
 app = FastAPI(
     title="GenHealth AI Assessment API",
     description="Technical assessment for GenHealth AI — Full Stack Engineer",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Attach limiter to app state

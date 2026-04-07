@@ -48,7 +48,7 @@ gcloud run deploy $SERVICE_NAME \
   --port 8080 \
   --memory 1Gi \
   --cpu 1 \
-  --min-instances 0 \
+  --min-instances 1 \
   --max-instances 3 \
   --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$GCP_PROJECT_ID,GCP_REGION=$GCP_REGION" \
   --service-account "${SA_EMAIL}" \

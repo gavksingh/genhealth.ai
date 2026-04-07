@@ -91,3 +91,10 @@ class ActivityLogResponse(BaseModel):
     status_code: Optional[int]
     duration_ms: Optional[float]
     timestamp: datetime
+
+
+class PaginatedLogsResponse(BaseModel):
+    logs: list[ActivityLogResponse]
+    total: int
+    skip: int
+    limit: int

@@ -37,8 +37,8 @@ export async function deleteOrder(id: number): Promise<void> {
   await api.delete(`/api/v1/orders/${id}`);
 }
 
-export async function getLogs(): Promise<ActivityLog[]> {
-  const { data } = await api.get<ActivityLog[]>('/api/v1/logs/');
+export async function getLogs(skip = 0, limit = 10): Promise<{ logs: ActivityLog[]; total: number; skip: number; limit: number }> {
+  const { data } = await api.get('/api/v1/logs/', { params: { skip, limit } });
   return data;
 }
 

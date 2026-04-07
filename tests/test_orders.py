@@ -92,7 +92,7 @@ def test_upload_non_pdf(client):
 
 def test_upload_pdf_with_mock(client):
     """Test PDF upload with mocked extractor."""
-    from unittest.mock import patch
+    from unittest.mock import patch, AsyncMock
 
     mock_result = {
         "first_name": "John",
@@ -110,7 +110,7 @@ def test_upload_pdf_with_mock(client):
     doc.close()
 
     with patch("app.services.pdf_extractor.PDFExtractor") as MockExtractor:
-        MockExtractor.return_value.extract.return_value = mock_result
+        MockExtractor.return_value.extract = AsyncMock(return_value=mock_result)
         response = client.post(
             "/api/v1/orders/upload",
             files={"file": ("test.pdf", pdf_bytes, "application/pdf")},

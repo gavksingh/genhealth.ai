@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Clock } from 'lucide-react';
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getLogs } from '../api';
 import type { ActivityLog } from '../types';
+
+const PAGE_SIZE = 15;
 
 const METHOD: Record<string, { bg: string; text: string }> = {
   GET:    { bg: '#f1f5f9', text: '#475569' },
@@ -28,52 +30,62 @@ function durationColor(ms: number | null) {
 
 export default function LogsTab() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [newLogIds, setNewLogIds] = useState<Set<number>>(new Set());
   const prevIds = useRef<Set<number>>(new Set());
 
-  useEffect(() => {
-    getLogs().then((d) => {
-      setLogs(d);
-      prevIds.current = new Set(d.map(l => l.id));
+  const fetchLogs = useCallback(async (p: number, highlight = true) => {
+    try {
+      const res = await getLogs(p * PAGE_SIZE, PAGE_SIZE);
+      if (highlight) {
+        const fresh = new Set<number>();
+        res.logs.forEach(l => { if (!prevIds.current.has(l.id)) fresh.add(l.id); });
+        if (fresh.size > 0) { setNewLogIds(fresh); setTimeout(() => setNewLogIds(new Set()), 1500); }
+      }
+      prevIds.current = new Set(res.logs.map(l => l.id));
+      setLogs(res.logs);
+      setTotal(res.total);
       setLastUpdated(new Date());
-    }).finally(() => setLoading(false));
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => {
-    const iv = setInterval(async () => {
-      try {
-        const d = await getLogs();
-        const fresh = new Set<number>();
-        d.forEach(l => { if (!prevIds.current.has(l.id)) fresh.add(l.id); });
-        if (fresh.size > 0) { setNewLogIds(fresh); setTimeout(() => setNewLogIds(new Set()), 1500); }
-        prevIds.current = new Set(d.map(l => l.id));
-        setLogs(d);
-        setLastUpdated(new Date());
-      } catch { /* silent */ }
-    }, 10000);
+    fetchLogs(page, false).finally(() => setLoading(false));
+  }, [page, fetchLogs]);
+
+  // Auto-refresh current page every 10s
+  useEffect(() => {
+    const iv = setInterval(() => fetchLogs(page), 10000);
     return () => clearInterval(iv);
-  }, []);
+  }, [page, fetchLogs]);
 
   useEffect(() => {
     const iv = setInterval(() => setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000)), 1000);
     return () => clearInterval(iv);
   }, [lastUpdated]);
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' };
   const td: React.CSSProperties = { padding: '12px 16px', fontSize: '14px', borderBottom: '1px solid #f1f5f9' };
+  const btnBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: '#475569', transition: 'all 0.15s' };
+  const btnDisabled: React.CSSProperties = { ...btnBase, opacity: 0.4, cursor: 'default', pointerEvents: 'none' };
+  const btnActive: React.CSSProperties = { ...btnBase, background: '#0f172a', color: '#fff', borderColor: '#0f172a' };
 
   return (
     <div style={{ paddingTop: 8 }}>
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Clock style={{ width: 18, height: 18, color: '#94a3b8' }} />
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a' }}>Activity Log</h2>
+            {total > 0 && <span style={{ fontSize: '12px', color: '#94a3b8', background: '#f1f5f9', borderRadius: 999, padding: '2px 8px' }}>{total} total</span>}
           </div>
           <span style={{ fontSize: '12px', color: '#94a3b8' }}>
             Auto-refreshes every 10s &middot; Updated {secondsAgo}s ago
@@ -92,7 +104,7 @@ export default function LogsTab() {
               </div>
             ))}
           </div>
-        ) : logs.length === 0 ? (
+        ) : logs.length === 0 && page === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '64px 20px' }}>
             <div style={{ position: 'relative', width: 48, height: 48, marginBottom: 16 }}>
               <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid #e2e8f0', animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.3 }} />
@@ -176,12 +188,47 @@ export default function LogsTab() {
                 );
               })}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button style={page === 0 ? btnDisabled : btnBase} onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} aria-label="Previous page">
+                    <ChevronLeft style={{ width: 16, height: 16 }} />
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i;
+                    } else if (page < 3) {
+                      pageNum = i;
+                    } else if (page > totalPages - 4) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    return (
+                      <button key={pageNum} style={pageNum === page ? btnActive : btnBase} onClick={() => setPage(pageNum)}>
+                        {pageNum + 1}
+                      </button>
+                    );
+                  })}
+                  <button style={page >= totalPages - 1 ? btnDisabled : btnBase} onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} aria-label="Next page">
+                    <ChevronRight style={{ width: 16, height: 16 }} />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
 
       <style>{`
         @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+        @keyframes newRowFlash { from { background: #dbeafe; } to { background: transparent; } }
         @media (max-width: 768px) {
           .desktop-logs { display: none !important; }
           .mobile-logs { display: flex !important; }

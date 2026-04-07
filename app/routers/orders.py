@@ -75,28 +75,23 @@ def delete_order(order_id: int, db: Session = Depends(get_db), _key: str = Depen
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def upload_document(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
+async def upload_document(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
     """Upload a PDF medical document and extract patient data using Vertex AI."""
     # Validate file type
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
     # Validate file size (10MB max)
-    contents = file.file.read()
+    contents = await file.read()
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
 
-    import tempfile
-    import os
-    tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(contents)
-            tmp_path = tmp.name
-
         from app.services.pdf_extractor import PDFExtractor
         extractor = PDFExtractor()
-        extracted = extractor.extract(tmp_path)
+        extracted = await extractor.extract(contents)
 
         db_order = models.Order(
             first_name=extracted["first_name"],
@@ -120,6 +115,3 @@ def upload_document(request: Request, file: UploadFile = File(...), db: Session 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
