@@ -76,12 +76,42 @@ pytest tests/ -v
 ./deploy.sh
 ```
 
-## What I Would Improve With More Time
+## What Was Built Beyond the Core Requirements
 
-- PostgreSQL for production persistence and concurrent write safety
-- Async processing queue (Celery/Cloud Tasks) for PDF extraction so uploads don't block
-- File storage on GCS instead of temp files — keep original PDFs for audit trail
-- API key authentication and rate limiting
-- Structured logging with request tracing (correlation IDs)
-- CI/CD pipeline with GitHub Actions
-- More comprehensive integration tests for the PDF extraction pipeline
+- **Gemini 2.5 Flash vision AI** for PDF extraction — handles both text-based
+  and fully scanned documents with 100% confidence on the sample PDF
+- **Activity logging middleware** captures every request automatically with
+  method, path, IP, user agent, status code, and response time
+- **Manual order creation form** in the UI — full CRUD is accessible without
+  touching the API directly
+- **Inline status editing** on each order row — no page reload required
+- **Animated delete confirmation** — row flashes rose-50 with confirm/cancel
+  before any destructive action
+- **Live health indicator** in the navigation bar — pings /health on mount
+- **Auto-refreshing activity log** — updates every 10 seconds silently
+- **Confidence score visualization** with a progress bar on extraction results
+- **Mobile-responsive layout** with bottom tab navigation on small screens
+- **16 passing tests** covering CRUD, validation, file type rejection, and
+  activity logging behavior
+
+## What I Would Add With More Time
+
+- **PostgreSQL** for production persistence and concurrent write safety.
+  SQLite is ephemeral on Cloud Run — data resets on redeploy. Migration is
+  a one-line DATABASE_URL change with Alembic handling schema.
+- **Async PDF processing queue** using Cloud Tasks or Celery so large document
+  uploads return immediately with a job ID and the client polls for completion.
+  Right now extraction blocks the HTTP request.
+- **GCS file storage** for uploaded PDFs — keeping originals for audit trail,
+  re-processing, and compliance. Currently processed in memory only.
+- **JWT authentication** with refresh tokens and role-based access so only
+  authorized users can create or modify orders.
+- **Rate limiting** on the upload endpoint specifically — PDF extraction is
+  LLM-backed and costs money per call.
+- **Structured logging with correlation IDs** — each request gets a trace ID
+  that flows through the activity log, making debugging across services
+  tractable.
+- **GitHub Actions CI/CD** — run tests on every PR, block merges on failure,
+  auto-deploy to Cloud Run on main push.
+- **Batch PDF processing** — accept a ZIP of PDFs and process them
+  concurrently, returning a job status endpoint.

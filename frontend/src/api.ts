@@ -17,6 +17,17 @@ export async function getOrders(): Promise<Order[]> {
   return data;
 }
 
+export async function createOrder(order: {
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  notes?: string;
+  status?: OrderStatus;
+}): Promise<Order> {
+  const { data } = await api.post<Order>('/api/v1/orders/', order);
+  return data;
+}
+
 export async function updateOrder(id: number, update: { status?: OrderStatus }): Promise<Order> {
   const { data } = await api.put<Order>(`/api/v1/orders/${id}`, update);
   return data;
@@ -29,4 +40,13 @@ export async function deleteOrder(id: number): Promise<void> {
 export async function getLogs(): Promise<ActivityLog[]> {
   const { data } = await api.get<ActivityLog[]>('/api/v1/logs/');
   return data;
+}
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const { data } = await api.get('/health');
+    return data.status === 'ok';
+  } catch {
+    return false;
+  }
 }
