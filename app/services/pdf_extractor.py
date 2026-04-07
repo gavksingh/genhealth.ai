@@ -16,10 +16,14 @@
 # =============================================================================
 
 import json
+import logging
 import os
 import fitz  # PyMuPDF
 from google import genai
 from google.genai import types
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+logger = logging.getLogger(__name__)
 
 _CLIENT = None
 
@@ -109,8 +113,16 @@ class PDFExtractor:
         except (json.JSONDecodeError, TypeError):
             return None
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Gemini API call failed (attempt {retry_state.attempt_number}), retrying..."
+        ),
+    )
     def _generate(self, contents: list) -> str:
-        """Call Gemini and return text response."""
+        """Call Gemini and return text response with exponential backoff retry."""
         response = self.client.models.generate_content(
             model=self.model,
             contents=contents,

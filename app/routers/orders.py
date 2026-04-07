@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.database import get_db
+from app.auth import require_api_key
 from app import models, schemas
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.OrderResponse)
-def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def create_order(request: Request, order: schemas.OrderCreate, db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
     """Create a new order manually from a JSON body."""
     data = order.model_dump(exclude_unset=True)
     if "status" in data and data["status"] is not None:
@@ -43,7 +48,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{order_id}", response_model=schemas.OrderResponse)
-def update_order(order_id: int, order: schemas.OrderUpdate, db: Session = Depends(get_db)):
+def update_order(order_id: int, order: schemas.OrderUpdate, db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
     """Update an existing order. Only provided fields are updated."""
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
@@ -59,7 +64,7 @@ def update_order(order_id: int, order: schemas.OrderUpdate, db: Session = Depend
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_order(order_id: int, db: Session = Depends(get_db)):
+def delete_order(order_id: int, db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
     """Delete an order by ID."""
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
@@ -69,7 +74,8 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
-def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def upload_document(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), _key: str = Depends(require_api_key)):
     """Upload a PDF medical document and extract patient data using Vertex AI."""
     # Validate file type
     if not file.filename or not file.filename.lower().endswith(".pdf"):

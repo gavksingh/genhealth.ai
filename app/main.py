@@ -1,8 +1,11 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.database import engine, Base
 from app import models  # noqa: F401 — ensures tables are created
 from app.routers import orders, logs
@@ -11,11 +14,18 @@ from app.middleware import ActivityLoggingMiddleware
 # Auto-create all tables on startup
 Base.metadata.create_all(bind=engine)
 
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="GenHealth AI Assessment API",
     description="Technical assessment for GenHealth AI — Full Stack Engineer",
     version="1.0.0",
 )
+
+# Attach limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — allow all origins for assessment
 app.add_middleware(
